@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 # Import functions from our API
 from api.main import (
     parse_simple_polygon_wkt,
-    generate_mock_spectral_data,
+    generate_realistic_spectral_data,
     estimate_carbon_sequestration
 )
 
@@ -142,7 +142,7 @@ class TestCarbonCalculationsWalkthrough:
         print(f"  Final NDRE: {ndre:.3f}")
         
         # Test our actual function
-        calc_fai, calc_ndre = generate_mock_spectral_data(area_m2, date)
+        calc_fai, calc_ndre = generate_realistic_spectral_data(area_m2, date)
         
         print(f"\nFunction results:")
         print(f"  FAI: {calc_fai:.3f}")
