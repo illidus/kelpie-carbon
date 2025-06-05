@@ -55,7 +55,7 @@ def load_model():
     
     try:
         model = load(model_path)
-        print(f"✅ Model loaded successfully from {model_path}")
+        print(f"[OK] Model loaded successfully from {model_path}")
     except Exception as e:
         raise RuntimeError(f"Failed to load model: {e}")
 
@@ -262,11 +262,11 @@ async def carbon_analysis(
         
         # Log outliers for model quality monitoring
         if raw_biomass_density > 10.0:
-            print(f"⚠️  HIGH DENSITY: Model predicted {raw_biomass_density:.1f} kg/m², capped to 10.0 kg/m² (consider retraining)")
+            print(f"[WARN] HIGH DENSITY: Model predicted {raw_biomass_density:.1f} kg/m2, capped to 10.0 kg/m2 (consider retraining)")
         elif raw_biomass_density > 7.0:
-            print(f"ℹ️  Dense site: {raw_biomass_density:.1f} kg/m² (upper end but physically possible)")
+            print(f"[INFO] Dense site: {raw_biomass_density:.1f} kg/m2 (upper end but physically possible)")
         elif raw_biomass_density < 0.0:
-            print(f"⚠️  NEGATIVE: Model predicted {raw_biomass_density:.1f} kg/m², capped to 0.0 kg/m²")
+            print(f"[WARN] NEGATIVE: Model predicted {raw_biomass_density:.1f} kg/m2, capped to 0.0 kg/m2")
         
         # Calculate total biomass for the area
         total_biomass_kg = biomass_kg_per_m2 * area_m2
