@@ -1,0 +1,19 @@
+# Use Nixpacks, not Docker
+Dockerfile*
+.dockerignore
+docker-compose.*
+
+# Development files
+.venv/
+node_modules/
+.git/
+.env.*
+
+# Build artifacts
+dashboard/dist/
+*.pyc
+__pycache__/
+
+# Testing
+tests/
+notebooks/ 
