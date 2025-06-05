@@ -1,6 +1,10 @@
 # Exclude dashboard from API deployment
 dashboard/
 
+# Dockerfile backups
+Dockerfile.backup
+Dockerfile.simple
+
 # Python
 __pycache__/
 *.py[cod]
