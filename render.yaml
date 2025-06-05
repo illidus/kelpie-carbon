@@ -10,4 +10,14 @@ services:
       - key: PYTHONPATH
         value: /opt/render/project/src
       - key: PORT
-        value: "10000" 
+        value: "10000"
+
+  - type: static
+    name: kelpie-carbon-dashboard
+    buildCommand: cd dashboard && npm install && npm run build
+    staticPublishPath: ./dashboard/dist
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html 

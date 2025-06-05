@@ -12,7 +12,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 })
 
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = 'https://kelpie-carbon.onrender.com'
 
 function DrawingController({ onPolygonComplete }) {
   const [isDrawing, setIsDrawing] = useState(false)
