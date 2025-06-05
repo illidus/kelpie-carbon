@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelp Carbon Tile Server</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .endpoint { background: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .code { background: #eee; padding: 10px; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌊 Kelp Carbon Tile Server</h1>
+        <p>Map tiles for kelp biomass and carbon sequestration analysis</p>
+    </div>
+    
+    <div class="endpoint">
+        <h2>Tile Endpoint</h2>
+        <div class="code">
+            https://illidus.github.io/kelpie-carbon/tiles/{z}/{x}/{y}.png
+        </div>
+        <p>Standard XYZ tile format compatible with Leaflet, OpenLayers, and other mapping libraries.</p>
+    </div>
+    
+    <div class="endpoint">
+        <h2>Leaflet Usage Example</h2>
+        <div class="code">
+L.tileLayer(<br>
+&nbsp;&nbsp;'https://illidus.github.io/kelpie-carbon/tiles/{z}/{x}/{y}.png',<br>
+&nbsp;&nbsp;{ maxZoom: 14, attribution: 'Kelp Carbon Analysis' }<br>
+).addTo(map);
+        </div>
+    </div>
+    
+    <div class="endpoint">
+        <h2>About</h2>
+        <p>This tile server hosts pre-generated map tiles for kelp forest carbon analysis. 
+        The tiles show kelp biomass distribution and carbon sequestration estimates derived from 
+        satellite spectral indices (FAI/NDRE) and machine learning models.</p>
+        
+        <p><strong>Data Sources:</strong> Sentinel-2 satellite imagery, Random Forest biomass prediction</p>
+        <p><strong>Coverage:</strong> British Columbia coastal waters</p>
+        <p><strong>Last Updated:</strong> <span id="lastUpdated"></span></p>
+    </div>
+    
+    <script>
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString();
+    </script>
+</body>
+</html> 
