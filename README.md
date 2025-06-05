@@ -140,7 +140,28 @@ poetry run pytest tests/test_api.py -v
 
 # Type checking
 poetry run mypy sentinel_pipeline/ api/
+
+# Test dashboard deployment (comprehensive)
+python scripts/test_dashboard_deployment.py
+
+# Quick dashboard validation (for CI/CD)
+python scripts/validate_dashboard.py
 ```
+
+#### Dashboard Testing
+
+The project includes comprehensive tests for dashboard deployment:
+
+- **`tests/test_dashboard_deployment.py`** - Full pytest suite testing build process, live deployment, and integration
+- **`scripts/test_dashboard_deployment.py`** - Standalone comprehensive test (no pytest dependencies)  
+- **`scripts/validate_dashboard.py`** - Quick validation for CI/CD pipelines
+
+**Test Coverage:**
+- ✅ Build process validation (npm install, build, dist files)
+- ✅ Live deployment testing (GitHub Pages accessibility)
+- ✅ Asset loading verification (CSS, JavaScript bundles)
+- ✅ Integration testing (homepage links, React structure)
+- ✅ Infrastructure validation (deployment scripts, git branches)
 
 #### Code Quality
 ```bash
