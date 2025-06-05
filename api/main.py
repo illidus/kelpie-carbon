@@ -19,11 +19,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Add imports for new features
 try:
-    from .landsat_integration import get_real_landsat_data
-    from .result_mapping import create_result_map
+    from landsat_integration import get_real_landsat_data
+    from result_mapping import create_result_map
     ENHANCED_FEATURES_AVAILABLE = True
-except ImportError:
+    print("✅ Enhanced features loaded successfully")
+except ImportError as e:
     ENHANCED_FEATURES_AVAILABLE = False
+    print(f"⚠️  Enhanced features not available: {e}")
 
 # Initialize FastAPI app
 app = FastAPI(
