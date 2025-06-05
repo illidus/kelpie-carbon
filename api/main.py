@@ -224,6 +224,18 @@ def estimate_carbon_sequestration(biomass_kg: float) -> float:
 @app.on_event("startup")
 async def startup_event():
     """Load model on application startup."""
+    # Debug: Print working directory and file structure
+    print(f"🔍 Working directory: {os.getcwd()}")
+    print(f"🔍 Files in current dir: {os.listdir('.')}")
+    if os.path.exists("dashboard"):
+        print(f"🔍 Files in dashboard/: {os.listdir('dashboard')}")
+        if os.path.exists("dashboard/dist"):
+            print(f"🔍 Files in dashboard/dist/: {os.listdir('dashboard/dist')}")
+    if os.path.exists("../dashboard"):
+        print(f"🔍 Files in ../dashboard/: {os.listdir('../dashboard')}")
+        if os.path.exists("../dashboard/dist"):
+            print(f"🔍 Files in ../dashboard/dist/: {os.listdir('../dashboard/dist')}")
+    
     load_model()
 
 @app.get("/health", response_model=HealthResponse)
@@ -381,8 +393,24 @@ async def api_info():
     }
 
 # Serve static files for the dashboard
-dashboard_path = "dashboard/dist"
-if os.path.exists(dashboard_path):
+# Try multiple possible paths for dashboard
+possible_paths = [
+    "dashboard/dist",
+    "../dashboard/dist", 
+    "./dashboard/dist",
+    "/opt/render/project/src/dashboard/dist"
+]
+
+dashboard_path = None
+for path in possible_paths:
+    if os.path.exists(path):
+        dashboard_path = path
+        print(f"✅ Found dashboard at: {path}")
+        break
+    else:
+        print(f"❌ Dashboard not found at: {path}")
+
+if dashboard_path:
     # Mount the assets directory for CSS/JS files
     app.mount("/assets", StaticFiles(directory=f"{dashboard_path}/assets"), name="assets")
     
