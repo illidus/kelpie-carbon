@@ -90,11 +90,57 @@ function DrawingController({ onPolygonComplete }) {
   )
 }
 
+function EnhancedControls({ useRealLandsat, setUseRealLandsat, includeMap, setIncludeMap, mapType, setMapType }) {
+  return (
+    <div className="enhanced-controls">
+      <div className="control-group">
+        <label className="control-label">
+          <input
+            type="checkbox"
+            checked={useRealLandsat}
+            onChange={(e) => setUseRealLandsat(e.target.checked)}
+          />
+          🛰️ Try Real Landsat Data
+        </label>
+        <small>Attempts to use actual Landsat imagery instead of synthetic data</small>
+      </div>
+      
+      <div className="control-group">
+        <label className="control-label">
+          <input
+            type="checkbox"
+            checked={includeMap}
+            onChange={(e) => setIncludeMap(e.target.checked)}
+          />
+          🗺️ Generate Result Map
+        </label>
+        <small>Creates a visual map of the analysis results</small>
+      </div>
+      
+      {includeMap && (
+        <div className="control-group">
+          <label className="control-label">Map Type:</label>
+          <select 
+            value={mapType} 
+            onChange={(e) => setMapType(e.target.value)}
+            className="map-type-select"
+          >
+            <option value="geojson">📊 GeoJSON (Data)</option>
+            <option value="static">🖼️ Static Image</option>
+            <option value="interactive">🌐 Interactive</option>
+          </select>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CarbonResults({ results, loading, error }) {
   if (loading) {
     return (
       <div className="results-panel loading">
         <h3>🔄 Analyzing Carbon Sequestration...</h3>
+        <p>Processing with enhanced features...</p>
       </div>
     )
   }
@@ -113,6 +159,7 @@ function CarbonResults({ results, loading, error }) {
       <div className="results-panel">
         <h3>🌊 Kelp Carbon Analysis</h3>
         <p>Draw a polygon on the map to analyze kelp biomass and carbon sequestration potential.</p>
+        <p><strong>Enhanced Features:</strong> Real Landsat data integration and result mapping available!</p>
       </div>
     )
   }
@@ -123,9 +170,42 @@ function CarbonResults({ results, loading, error }) {
     return num.toFixed(2)
   }
 
+  const getDataSourceIcon = (source) => {
+    switch(source) {
+      case 'landsat_real': return '🛰️'
+      case 'synthetic': return '🧮'
+      default: return '❓'
+    }
+  }
+
+  const getDataSourceLabel = (source) => {
+    switch(source) {
+      case 'landsat_real': return 'Real Landsat Data'
+      case 'synthetic': return 'Synthetic Data'
+      default: return 'Unknown Source'
+    }
+  }
+
   return (
     <div className="results-panel success">
-      <h3>🌿 Carbon Analysis Results</h3>
+      <h3>🌿 Enhanced Carbon Analysis Results</h3>
+      
+      {/* Data Source Information */}
+      <div className="data-source-info">
+        <span className="data-source-badge">
+          {getDataSourceIcon(results.data_source)} {getDataSourceLabel(results.data_source)}
+        </span>
+        {results.landsat_metadata && results.landsat_metadata.error && (
+          <small className="metadata-note">
+            Note: {results.landsat_metadata.error}
+          </small>
+        )}
+        {results.landsat_metadata && results.landsat_metadata.scene_id && (
+          <small className="metadata-note">
+            Scene: {results.landsat_metadata.scene_id}
+          </small>
+        )}
+      </div>
       
       <div className="result-grid">
         <div className="result-item">
@@ -153,14 +233,66 @@ function CarbonResults({ results, loading, error }) {
           <div className="result-value">{formatNumber(results.co2e_t)} tonnes CO₂e</div>
         </div>
         
+        {/* Enhanced Fields */}
+        <div className="result-item">
+          <div className="result-label">Biomass Density</div>
+          <div className="result-value">{formatNumber(results.biomass_density_t_ha)} t/ha</div>
+        </div>
+        
         <div className="result-item">
           <div className="result-label">Analysis Date</div>
           <div className="result-value">{results.date}</div>
         </div>
       </div>
       
+      {/* Result Map Display */}
+      {results.result_map && (
+        <div className="result-map-section">
+          <h4>📍 Result Map</h4>
+          {results.result_map.success ? (
+            <div className="map-result">
+              {results.result_map.type === 'static_map' && results.result_map.image_base64 && (
+                <div className="static-map">
+                  <img 
+                    src={`data:image/png;base64,${results.result_map.image_base64}`}
+                    alt="Carbon Analysis Map"
+                    className="result-map-image"
+                  />
+                </div>
+              )}
+              
+              {results.result_map.type === 'interactive_map' && results.result_map.html && (
+                <div className="interactive-map">
+                  <iframe
+                    srcDoc={results.result_map.html}
+                    className="result-map-iframe"
+                    title="Interactive Carbon Analysis Map"
+                  />
+                </div>
+              )}
+              
+              {results.result_map.type === 'geojson_map' && results.result_map.geojson && (
+                <div className="geojson-map">
+                  <details>
+                    <summary>📊 GeoJSON Data</summary>
+                    <pre className="geojson-data">
+                      {JSON.stringify(results.result_map.geojson, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="map-error">
+              <p>⚠️ Map generation failed: {results.result_map.error}</p>
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="carbon-impact">
         <p>💡 <strong>Impact:</strong> This kelp forest sequesters the equivalent of CO₂ from approximately {Math.round(results.co2e_t / 4.6)} passenger cars for one year.</p>
+        <p>🌱 <strong>Density:</strong> {formatNumber(results.biomass_density_t_ha)} tonnes of biomass per hectare.</p>
       </div>
     </div>
   )
@@ -171,6 +303,11 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().split('T')[0])
+  
+  // Enhanced API options
+  const [useRealLandsat, setUseRealLandsat] = useState(true)
+  const [includeMap, setIncludeMap] = useState(true)
+  const [mapType, setMapType] = useState('geojson')
 
   const analyzeCarbonSequestration = useCallback(async (wkt, points) => {
     setLoading(true)
@@ -179,7 +316,10 @@ function App() {
     try {
       const params = new URLSearchParams({
         date: analysisDate,
-        aoi: wkt
+        aoi: wkt,
+        use_real_landsat: useRealLandsat.toString(),
+        include_map: includeMap.toString(),
+        map_type: mapType
       })
       
       const response = await fetch(`${API_BASE_URL}/carbon?${params}`)
@@ -197,7 +337,7 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }, [analysisDate])
+  }, [analysisDate, useRealLandsat, includeMap, mapType])
 
   // Victoria, BC coordinates
   const victoriaCenter = [48.4284, -123.3656]
@@ -206,7 +346,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>🌊 Kelpie Carbon Dashboard</h1>
-        <p>Interactive kelp biomass estimation and carbon sequestration analysis</p>
+        <p>Enhanced kelp biomass estimation with real Landsat data and result mapping</p>
       </header>
 
       <div className="app-content">
@@ -222,6 +362,15 @@ function App() {
                 max={new Date().toISOString().split('T')[0]}
               />
             </div>
+            
+            <EnhancedControls
+              useRealLandsat={useRealLandsat}
+              setUseRealLandsat={setUseRealLandsat}
+              includeMap={includeMap}
+              setIncludeMap={setIncludeMap}
+              mapType={mapType}
+              setMapType={setMapType}
+            />
           </div>
 
           <MapContainer 
@@ -250,7 +399,7 @@ function App() {
 
       <footer className="app-footer">
         <p>
-          Powered by Sentinel-2 satellite imagery • 
+          Enhanced with real Landsat data via Microsoft Planetary Computer • 
           <a href={`${API_BASE_URL}/docs`} target="_blank" rel="noopener noreferrer"> API Documentation</a>
         </p>
       </footer>
