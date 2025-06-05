@@ -250,12 +250,18 @@ async def api_info():
 # Serve static files for the dashboard
 dashboard_path = "dashboard/dist"
 if os.path.exists(dashboard_path):
-    app.mount("/static", StaticFiles(directory=dashboard_path), name="static")
+    # Mount the assets directory for CSS/JS files
+    app.mount("/assets", StaticFiles(directory=f"{dashboard_path}/assets"), name="assets")
     
     @app.get("/")
     async def dashboard():
         """Serve the React dashboard."""
         return FileResponse(f"{dashboard_path}/index.html")
+    
+    @app.get("/vite.svg")
+    async def vite_svg():
+        """Serve the Vite logo."""
+        return FileResponse(f"{dashboard_path}/vite.svg")
 else:
     @app.get("/")
     async def root():
