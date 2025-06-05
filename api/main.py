@@ -11,6 +11,8 @@ from typing import Dict, Any, Optional
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from joblib import load
 
@@ -232,9 +234,9 @@ async def carbon_analysis(
         co2e_t=co2e_tonnes
     )
 
-@app.get("/")
-async def root():
-    """Root endpoint with API information."""
+@app.get("/api")
+async def api_info():
+    """API information endpoint."""
     return {
         "message": "Kelp Carbon Analysis API",
         "version": "1.0.0",
@@ -244,6 +246,27 @@ async def root():
             "carbon": "/carbon?date=YYYY-MM-DD&aoi=WKT_POLYGON"
         }
     }
+
+# Serve static files for the dashboard
+dashboard_path = "dashboard/dist"
+if os.path.exists(dashboard_path):
+    app.mount("/static", StaticFiles(directory=dashboard_path), name="static")
+    
+    @app.get("/")
+    async def dashboard():
+        """Serve the React dashboard."""
+        return FileResponse(f"{dashboard_path}/index.html")
+else:
+    @app.get("/")
+    async def root():
+        """Root endpoint when dashboard is not available."""
+        return {
+            "message": "Kelp Carbon Analysis API",
+            "version": "1.0.0", 
+            "dashboard": "Dashboard not built. Run 'cd dashboard && npm run build' to build the frontend.",
+            "docs": "/docs",
+            "health": "/health"
+        }
 
 if __name__ == "__main__":
     import uvicorn
