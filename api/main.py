@@ -59,6 +59,15 @@ def load_model():
     except Exception as e:
         raise RuntimeError(f"Failed to load model: {e}")
 
+def polygon_area(wkt: str) -> float:
+    """
+    Calculate geodesically accurate polygon area from WKT string.
+    
+    This is a production-ready helper that can be easily extended
+    for different CRS or more precise geodesic calculations.
+    """
+    return parse_simple_polygon_wkt(wkt)
+
 def parse_simple_polygon_wkt(wkt: str) -> float:
     """
     Simple WKT parser for POLYGON geometries to calculate geodesically accurate area.
@@ -231,9 +240,9 @@ async def carbon_analysis(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
-    # Parse WKT and calculate area
+    # Parse WKT and calculate area using geodesic engine
     try:
-        area_m2 = parse_simple_polygon_wkt(aoi)
+        area_m2 = polygon_area(aoi)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid WKT geometry: {e}")
     
@@ -248,12 +257,16 @@ async def carbon_analysis(
         
         # Apply realistic biomass density constraints for kelp
         # Research shows kelp farms typically yield 2-7 kg DW/m²
-        # Cap at 10 kg/m² for exceptional conditions
+        # Long-line farms can reach 7-10 kg DW/m² at very dense sites
         biomass_kg_per_m2 = np.clip(raw_biomass_density, 0.0, 10.0)
         
-        # Log if we had to apply constraints
+        # Log outliers for model quality monitoring
         if raw_biomass_density > 10.0:
-            print(f"⚠️  Constrained biomass density from {raw_biomass_density:.1f} to 10.0 kg/m²")
+            print(f"⚠️  HIGH DENSITY: Model predicted {raw_biomass_density:.1f} kg/m², capped to 10.0 kg/m² (consider retraining)")
+        elif raw_biomass_density > 7.0:
+            print(f"ℹ️  Dense site: {raw_biomass_density:.1f} kg/m² (upper end but physically possible)")
+        elif raw_biomass_density < 0.0:
+            print(f"⚠️  NEGATIVE: Model predicted {raw_biomass_density:.1f} kg/m², capped to 0.0 kg/m²")
         
         # Calculate total biomass for the area
         total_biomass_kg = biomass_kg_per_m2 * area_m2

@@ -41,6 +41,31 @@ poetry run uvicorn api.main:app --reload
 
 The API will be available at http://localhost:8000 with interactive docs at http://localhost:8000/docs
 
+### 🐳 Docker Deployment (Recommended for Production)
+
+1. **Clone and setup environment**:
+   ```bash
+   git clone https://github.com/illidus/kelpie-carbon.git
+   cd kelpie-carbon
+   cp .env.example .env  # Configure your environment variables
+   ```
+
+2. **Start all services**:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Verify deployment**:
+   ```bash
+   curl http://localhost:8000/health
+   # Should return: {"status": "healthy", "model_loaded": true}
+   ```
+
+**Services Included:**
+- 🌊 **FastAPI Application** (`localhost:8000`) - Carbon analysis API and dashboard
+- 🗄️ **PostGIS Database** (`localhost:5432`) - Spatial data storage  
+- 📦 **Redis Cache** (`localhost:6379`) - Results caching
+
 ### API Usage
 
 #### Health Check
@@ -177,3 +202,42 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Sentinel-2 imagery provided by ESA Copernicus program
 - Spectral indices research from kelp remote sensing literature
 - Carbon sequestration estimates based on kelp biology research 
+
+
+   ```
+
+4. **Test carbon analysis**:
+   ```bash
+   curl "http://localhost:8000/carbon?date=2024-06-15&aoi=POLYGON((-123.5%2048.4,%20-123.4%2048.4,%20-123.4%2048.5,%20-123.5%2048.5,%20-123.5%2048.4))"
+   ```
+
+### Services Included
+
+- **🌊 FastAPI Application** (`localhost:8000`) - Carbon analysis API and dashboard
+- **🗄️ PostGIS Database** (`localhost:5432`) - Spatial data storage
+- **📦 Redis Cache** (`localhost:6379`) - Results caching
+- **📊 Dashboard** (`localhost:8000/`) - Interactive kelp carbon analysis
+
+### Environment Variables
+
+```bash
+# Database Configuration
+POSTGRES_PASSWORD=your_secure_password
+DATABASE_URL=postgresql://kelpie:password@localhost:5432/kelpie_carbon
+
+# Optional: AWS S3 for result storage
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+S3_RESULTS_BUCKET=kelpie-carbon-results
+
+# Optional: Notifications
+SLACK_WEBHOOK_URL=https://hooks.slack.com/your/webhook
+```
+
+### Production Considerations
+
+1. **Security**: Change default passwords in `.env`
+2. **SSL**: Add nginx reverse proxy with SSL certificates
+3. **Monitoring**: Enable health checks and logging
+4. **Backup**: Configure automatic PostGIS backups
+5. **Scaling**: Use Docker Swarm or Kubernetes for multi-node deployment 

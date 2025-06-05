@@ -1,0 +1,137 @@
+name: Scheduled Carbon Analysis
+
+on:
+  # Run daily at 2 AM UTC (during low satellite pass times)
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      analysis_date:
+        description: 'Analysis date (YYYY-MM-DD) - defaults to yesterday'
+        required: false
+        default: ''
+      force_reprocess:
+        description: 'Force reprocessing even if results exist'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.12'
+  POETRY_VERSION: '1.8.3'
+
+jobs:
+  scheduled-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: ${{ env.POETRY_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        poetry install --with dev
+        
+    - name: Calculate analysis date
+      id: analysis-date
+      run: |
+        if [ -n "${{ github.event.inputs.analysis_date }}" ]; then
+          echo "date=${{ github.event.inputs.analysis_date }}" >> $GITHUB_OUTPUT
+        else
+          echo "date=$(date -d 'yesterday' '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Download Sentinel-2 data
+      env:
+        COPERNICUS_USERNAME: ${{ secrets.COPERNICUS_USERNAME }}
+        COPERNICUS_PASSWORD: ${{ secrets.COPERNICUS_PASSWORD }}
+      run: |
+        poetry run python scripts/download_sentinel_data.py \
+          --date ${{ steps.analysis-date.outputs.date }} \
+          --output-dir data/sentinel2/ \
+          --aoi-file config/monitoring_areas.geojson
+          
+    - name: Process spectral indices
+      run: |
+        poetry run python scripts/process_spectral_indices.py \
+          --input-dir data/sentinel2/ \
+          --output-dir data/processed/ \
+          --date ${{ steps.analysis-date.outputs.date }}
+          
+    - name: Run carbon analysis
+      run: |
+        poetry run python scripts/run_carbon_analysis.py \
+          --date ${{ steps.analysis-date.outputs.date }} \
+          --force-reprocess ${{ github.event.inputs.force_reprocess || 'false' }} \
+          --output-format json \
+          --output-dir results/
+          
+    - name: Generate summary report
+      run: |
+        poetry run python scripts/generate_summary_report.py \
+          --date ${{ steps.analysis-date.outputs.date }} \
+          --input-dir results/ \
+          --output results/summary_${{ steps.analysis-date.outputs.date }}.md
+          
+    - name: Upload results to S3
+      if: env.AWS_ACCESS_KEY_ID
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-west-2' }}
+      run: |
+        aws s3 sync results/ s3://${{ secrets.S3_RESULTS_BUCKET }}/carbon-analysis/ \
+          --exclude "*" --include "*${{ steps.analysis-date.outputs.date }}*"
+          
+    - name: Commit results to repository
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add results/
+        git commit -m "🌊 Carbon analysis results for ${{ steps.analysis-date.outputs.date }}" || exit 0
+        git push origin main || echo "No changes to push"
+        
+    - name: Create release on significant changes
+      if: success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Check if total biomass changed by >5% from last week
+        poetry run python scripts/check_significant_changes.py \
+          --date ${{ steps.analysis-date.outputs.date }} \
+          --threshold 0.05 \
+          --create-release
+          
+    - name: Send notification on failure
+      if: failure()
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🚨 Scheduled carbon analysis failed for ${{ steps.analysis-date.outputs.date }}"}' \
+          $SLACK_WEBHOOK_URL || echo "Notification failed"
+          
+    - name: Upload processing logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: processing-logs-${{ steps.analysis-date.outputs.date }}
+        path: |
+          logs/
+          results/summary_${{ steps.analysis-date.outputs.date }}.md
+        retention-days: 30 
