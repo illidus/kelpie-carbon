@@ -28,22 +28,37 @@ def test_root_serves_dashboard():
             content = response.text
             
             # Check if it's serving the dashboard (React app)
-            if "<!DOCTYPE html>" in content and ("react" in content.lower() or "vite" in content.lower() or "app" in content.lower()):
+            is_html = "<!DOCTYPE html>" in content.lower() or "<!doctype html>" in content.lower()
+            has_assets = "/assets/" in content
+            has_root_div = 'id="root"' in content
+            has_vite = "/vite.svg" in content
+            
+            if is_html and (has_assets or has_vite):
                 print("✅ Dashboard HTML is being served!")
                 
                 # Check for essential dashboard elements
                 checks = [
-                    ("HTML structure", "<!DOCTYPE html>" in content),
+                    ("HTML structure", is_html),
                     ("Title tag", "<title>" in content),
-                    ("React root div", 'id="root"' in content or 'id="app"' in content),
-                    ("CSS/JS assets", "/assets/" in content or ".css" in content or ".js" in content)
+                    ("React root div", has_root_div),
+                    ("Vite assets", has_vite),
+                    ("Asset references", has_assets)
                 ]
                 
+                passed_checks = 0
                 for check_name, passed in checks:
                     status = "✅" if passed else "❌"
                     print(f"   {status} {check_name}")
+                    if passed:
+                        passed_checks += 1
                 
-                return True
+                # Dashboard is functional if most checks pass
+                if passed_checks >= 4:
+                    print("✅ Dashboard appears to be fully functional!")
+                    return True
+                else:
+                    print("⚠️  Dashboard partially loaded")
+                    return False
             else:
                 # Check if it's returning API JSON instead
                 try:
@@ -71,30 +86,46 @@ def test_dashboard_assets():
     """Test if dashboard assets (CSS/JS) are accessible."""
     print("\n🎨 Testing dashboard assets...")
     
-    # Common asset paths for Vite builds
-    asset_paths = [
-        "/assets/index.css",
-        "/assets/index.js", 
-        "/vite.svg"
-    ]
-    
-    assets_working = 0
-    for path in asset_paths:
-        try:
-            response = requests.get(f"{BASE_URL}{path}", timeout=5)
-            if response.status_code == 200:
-                print(f"✅ Asset accessible: {path}")
-                assets_working += 1
-            else:
-                print(f"❌ Asset missing: {path} (status: {response.status_code})")
-        except Exception as e:
-            print(f"❌ Asset error {path}: {e}")
-    
-    if assets_working > 0:
-        print(f"✅ {assets_working}/{len(asset_paths)} assets working")
-        return True
-    else:
-        print("⚠️  No dashboard assets found - dashboard likely not built")
+    # First get the HTML to find actual asset paths
+    try:
+        response = requests.get(f"{BASE_URL}/", timeout=10)
+        if response.status_code != 200:
+            print("❌ Cannot get HTML to check assets")
+            return False
+            
+        html_content = response.text
+        
+        # Extract actual asset paths from HTML
+        css_matches = re.findall(r'href="(/assets/[^"]+\.css)"', html_content)
+        js_matches = re.findall(r'src="(/assets/[^"]+\.js)"', html_content)
+        
+        print(f"Found CSS files: {css_matches}")
+        print(f"Found JS files: {js_matches}")
+        
+        # Test the actual assets found in HTML
+        all_assets = css_matches + js_matches + ["/vite.svg"]
+        assets_working = 0
+        
+        for asset_path in all_assets:
+            try:
+                asset_response = requests.get(f"{BASE_URL}{asset_path}", timeout=5)
+                if asset_response.status_code == 200:
+                    print(f"✅ Asset accessible: {asset_path}")
+                    assets_working += 1
+                else:
+                    print(f"❌ Asset missing: {asset_path} (status: {asset_response.status_code})")
+            except Exception as e:
+                print(f"❌ Asset error {asset_path}: {e}")
+        
+        if assets_working >= len(all_assets) * 0.8:  # At least 80% working
+            print(f"✅ {assets_working}/{len(all_assets)} assets working - Dashboard functional!")
+            return True
+        else:
+            print(f"⚠️  Only {assets_working}/{len(all_assets)} assets working")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Asset test error: {e}")
         return False
 
 def test_api_endpoints_still_work():

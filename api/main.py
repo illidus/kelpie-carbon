@@ -15,11 +15,20 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from joblib import load
+from fastapi.middleware.cors import CORSMiddleware
+
+# Add imports for new features
+try:
+    from .landsat_integration import get_real_landsat_data
+    from .result_mapping import create_result_map
+    ENHANCED_FEATURES_AVAILABLE = True
+except ImportError:
+    ENHANCED_FEATURES_AVAILABLE = False
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Kelp Carbon Analysis API",
-    description="Microservice for kelp biomass estimation and carbon sequestration analysis using satellite spectral indices",
+    title="Kelpie Carbon Analysis API",
+    description="Analyze kelp carbon sequestration using satellite imagery and machine learning",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -27,6 +36,15 @@ app = FastAPI(
 
 # Global model variable
 model = None
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Response models
 class HealthResponse(BaseModel):
@@ -36,7 +54,7 @@ class HealthResponse(BaseModel):
     timestamp: str = Field(..., description="Current timestamp")
 
 class CarbonAnalysisResponse(BaseModel):
-    """Carbon analysis response model."""
+    """Enhanced carbon analysis response model with mapping and real data support."""
     date: str = Field(..., description="Analysis date")
     aoi_wkt: str = Field(..., description="Area of interest as WKT")
     area_m2: float = Field(..., description="Area in square meters")
@@ -44,6 +62,12 @@ class CarbonAnalysisResponse(BaseModel):
     mean_ndre: float = Field(..., description="Mean Normalized Difference Red Edge")
     biomass_t: float = Field(..., description="Estimated biomass in tonnes")
     co2e_t: float = Field(..., description="CO2 equivalent in tonnes")
+    
+    # New enhanced fields
+    data_source: str = Field(..., description="Source of spectral data (landsat_real, synthetic)")
+    landsat_metadata: Optional[Dict[str, Any]] = Field(None, description="Landsat scene metadata if available")
+    result_map: Optional[Dict[str, Any]] = Field(None, description="Map visualization of results")
+    biomass_density_t_ha: float = Field(..., description="Biomass density in tonnes per hectare")
 
 def load_model():
     """Load the biomass regression model at startup."""
@@ -216,19 +240,26 @@ async def health_check() -> HealthResponse:
 @app.get("/carbon", response_model=CarbonAnalysisResponse)
 async def carbon_analysis(
     date: str = Query(..., description="Analysis date in YYYY-MM-DD format", pattern=r'^\d{4}-\d{2}-\d{2}$'),
-    aoi: str = Query(..., description="Area of Interest as WKT POLYGON")
+    aoi: str = Query(..., description="Area of Interest as WKT POLYGON"),
+    use_real_landsat: bool = Query(False, description="Try to use real Landsat data instead of synthetic"),
+    include_map: bool = Query(True, description="Include result map visualization"),
+    map_type: str = Query("geojson", description="Map type: static, interactive, or geojson")
 ) -> CarbonAnalysisResponse:
     """
-    Kelp carbon analysis endpoint.
+    Enhanced Kelp carbon analysis endpoint with real Landsat data and mapping.
     
     Analyzes kelp biomass and carbon sequestration for a given area and date.
+    Can optionally use real Landsat imagery and generate result maps.
     
     Parameters:
     - date: Analysis date in YYYY-MM-DD format
     - aoi: Area of Interest as WKT POLYGON geometry
+    - use_real_landsat: Whether to attempt using real Landsat data
+    - include_map: Whether to include map visualization in response
+    - map_type: Type of map to generate (static, interactive, geojson)
     
     Returns:
-    - Carbon analysis results including biomass and CO2 estimates
+    - Enhanced carbon analysis results with optional real data and mapping
     """
     # Validate model is loaded
     if model is None:
@@ -246,8 +277,30 @@ async def carbon_analysis(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid WKT geometry: {e}")
     
-    # Generate realistic spectral data using proper satellite formulas
-    mean_fai, mean_ndre = generate_realistic_spectral_data(area_m2, date)
+    # Try to get real Landsat data if requested and available
+    landsat_metadata = None
+    data_source = "synthetic"
+    
+    if use_real_landsat and ENHANCED_FEATURES_AVAILABLE:
+        try:
+            real_fai, real_ndre, metadata = get_real_landsat_data(aoi, date)
+            if real_fai is not None and real_ndre is not None:
+                mean_fai, mean_ndre = real_fai, real_ndre
+                landsat_metadata = metadata
+                data_source = "landsat_real"
+                print(f"✅ Using real Landsat data: {metadata.get('scene_id', 'unknown')}")
+            else:
+                # Fallback to synthetic data
+                mean_fai, mean_ndre = generate_realistic_spectral_data(area_m2, date)
+                landsat_metadata = metadata  # May contain error info
+                print(f"⚠️  Landsat unavailable, using synthetic: {metadata.get('error', 'unknown error')}")
+        except Exception as e:
+            mean_fai, mean_ndre = generate_realistic_spectral_data(area_m2, date)
+            landsat_metadata = {"error": f"Landsat integration error: {str(e)}"}
+            print(f"❌ Landsat error, using synthetic: {e}")
+    else:
+        # Use synthetic data
+        mean_fai, mean_ndre = generate_realistic_spectral_data(area_m2, date)
     
     # Predict biomass using the loaded model with realistic constraints
     try:
@@ -271,12 +324,32 @@ async def carbon_analysis(
         # Calculate total biomass for the area
         total_biomass_kg = biomass_kg_per_m2 * area_m2
         biomass_tonnes = total_biomass_kg / 1000.0
+        biomass_density_t_ha = biomass_tonnes / (area_m2 / 10000)  # Convert to tonnes per hectare
         
         # Estimate carbon sequestration
         co2e_tonnes = estimate_carbon_sequestration(total_biomass_kg)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
+    
+    # Create result map if requested
+    result_map = None
+    if include_map:
+        try:
+            if ENHANCED_FEATURES_AVAILABLE:
+                analysis_results = {
+                    "date": date,
+                    "area_m2": area_m2,
+                    "biomass_t": biomass_tonnes,
+                    "co2e_t": co2e_tonnes,
+                    "mean_fai": mean_fai,
+                    "mean_ndre": mean_ndre
+                }
+                result_map = create_result_map(aoi, analysis_results, map_type)
+            else:
+                result_map = {"error": "Mapping features not available"}
+        except Exception as e:
+            result_map = {"error": f"Map creation failed: {str(e)}"}
     
     return CarbonAnalysisResponse(
         date=date,
@@ -285,7 +358,11 @@ async def carbon_analysis(
         mean_fai=mean_fai,
         mean_ndre=mean_ndre,
         biomass_t=biomass_tonnes,
-        co2e_t=co2e_tonnes
+        co2e_t=co2e_tonnes,
+        data_source=data_source,
+        landsat_metadata=landsat_metadata,
+        result_map=result_map,
+        biomass_density_t_ha=biomass_density_t_ha
     )
 
 @app.get("/api")
