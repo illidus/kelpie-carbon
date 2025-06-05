@@ -152,6 +152,27 @@ Choose your platform and run:
 # Just connect GitHub repo in Render dashboard
 ```
 
+## 🔧 Troubleshooting
+
+### Docker Build Issues
+If you encounter Docker build errors like "context canceled" or "exit code: 1":
+
+**Option 1: Use Nixpacks (Default)**
+- Railway is configured to use Nixpacks instead of Docker
+- This avoids Docker build complexity
+
+**Option 2: Use Simple Dockerfile**
+If you need Docker, rename `Dockerfile.simple` to `Dockerfile`:
+```bash
+mv Dockerfile.simple Dockerfile
+git add Dockerfile
+git commit -m "Use simple Dockerfile"
+git push
+```
+
+**Option 3: Skip Docker Health Checks**
+Some platforms don't support Docker health checks. The simple Dockerfile removes them.
+
 ### Manual Testing
 ```bash
 # Test locally first
