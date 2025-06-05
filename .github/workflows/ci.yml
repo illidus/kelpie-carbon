@@ -88,4 +88,6 @@ jobs:
       run: poetry run flake8 sentinel_pipeline/
 
     - name: Run mypy type checking
-      run: poetry run mypy sentinel_pipeline/ --ignore-missing-imports --no-strict-optional --allow-untyped-defs 
+      run: |
+        poetry run mypy sentinel_pipeline/ --ignore-missing-imports --no-strict-optional --allow-untyped-defs
+        poetry run mypy api/ --ignore-missing-imports --no-strict-optional --allow-untyped-defs 
