@@ -234,6 +234,65 @@ S3_RESULTS_BUCKET=kelpie-carbon-results
 SLACK_WEBHOOK_URL=https://hooks.slack.com/your/webhook
 ```
 
+### 🗺️ GitHub Pages Tile Server
+
+Zero-cost map tile hosting for kelp carbon visualization using GitHub Pages:
+
+**Tile Endpoint:**
+```
+https://[username].github.io/[repo]/tiles/{z}/{x}/{y}.png
+```
+
+**Leaflet Integration:**
+```javascript
+// Add kelp carbon tiles to your map
+const kelpTiles = L.tileLayer(
+  'https://[username].github.io/[repo]/tiles/{z}/{x}/{y}.png',
+  { 
+    maxZoom: 14,
+    attribution: 'Kelp Carbon Analysis | Sentinel-2 ESA',
+    opacity: 0.8
+  }
+).addTo(map);
+
+// Optional: Add toggle control
+const overlayMaps = {
+  "Kelp Carbon Density": kelpTiles
+};
+L.control.layers(null, overlayMaps).addTo(map);
+```
+
+**OpenLayers Integration:**
+```javascript
+import TileLayer from 'ol/layer/Tile';
+import XYZ from 'ol/source/XYZ';
+
+const kelpLayer = new TileLayer({
+  source: new XYZ({
+    url: 'https://[username].github.io/[repo]/tiles/{z}/{x}/{y}.png',
+    maxZoom: 14
+  }),
+  opacity: 0.8
+});
+```
+
+**Publishing Tiles:**
+```bash
+# Manual publish (after generating tiles)
+bash scripts/publish_tiles.sh
+
+# Or push to main branch - GitHub Actions will auto-publish
+git add tiles/
+git commit -m "🌊 Update kelp carbon tiles"
+git push origin main
+```
+
+**Custom Domain (Optional):**
+To use a custom domain like `tiles.kelpcarbon.org`:
+1. Add a `CNAME` file to gh-pages branch with your domain
+2. Configure DNS with a CNAME record pointing to `[username].github.io`
+3. Enable custom domain in repository Settings > Pages
+
 ### Production Considerations
 
 1. **Security**: Change default passwords in `.env`
