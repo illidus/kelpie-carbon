@@ -381,7 +381,7 @@ async def api_info():
     }
 
 # Serve static files for the dashboard
-dashboard_path = "../dashboard/dist"
+dashboard_path = "dashboard/dist"
 if os.path.exists(dashboard_path):
     # Mount the assets directory for CSS/JS files
     app.mount("/assets", StaticFiles(directory=f"{dashboard_path}/assets"), name="assets")
