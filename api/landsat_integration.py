@@ -1,8 +1,8 @@
 """
-Real Landsat Data Integration for Kelp Carbon Analysis API
+Real Landsat Data Integration for Kelp Carbon Analysis
 
-This module integrates real Landsat imagery from Microsoft Planetary Computer
-to provide actual satellite reflectance data for carbon analysis.
+This module integrates with Microsoft Planetary Computer to fetch real Landsat imagery
+and calculate actual spectral indices for more accurate carbon analysis.
 """
 
 import os
@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import requests
 from typing import Optional, Tuple, Dict, Any
 import warnings
+
+# Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
 
 # Try to import planetary computer and satellite packages
@@ -20,8 +22,10 @@ try:
     from rasterio.warp import transform_bounds
     import planetary_computer
     LANDSAT_AVAILABLE = True
-except ImportError:
+    print("✅ Landsat dependencies loaded successfully")
+except ImportError as e:
     LANDSAT_AVAILABLE = False
+    print(f"⚠️  Landsat dependencies not available: {e}")
 
 def get_real_landsat_data(aoi_wkt: str, date: str) -> Tuple[Optional[float], Optional[float], Dict[str, Any]]:
     """

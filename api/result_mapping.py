@@ -12,21 +12,25 @@ import numpy as np
 from typing import Optional, Dict, Any, Tuple
 import json
 
-# Try to import mapping libraries
+# Try to import mapping libraries with better error handling
 try:
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
     from matplotlib.colors import LinearSegmentedColormap
     MATPLOTLIB_AVAILABLE = True
-except ImportError:
+    print("✅ Matplotlib loaded successfully")
+except ImportError as e:
     MATPLOTLIB_AVAILABLE = False
+    print(f"⚠️  Matplotlib not available: {e}")
 
 try:
     import folium
     from folium import plugins
     FOLIUM_AVAILABLE = True
-except ImportError:
+    print("✅ Folium loaded successfully")
+except ImportError as e:
     FOLIUM_AVAILABLE = False
+    print(f"⚠️  Folium not available: {e}")
 
 def create_result_map(
     aoi_wkt: str, 
@@ -39,23 +43,36 @@ def create_result_map(
     Args:
         aoi_wkt: WKT polygon string defining the analyzed area
         analysis_results: Results from carbon analysis including biomass, CO2, etc.
-        map_type: "static" for matplotlib image, "interactive" for folium HTML
+        map_type: "static" for matplotlib image, "interactive" for folium HTML, "geojson" for simple data
         
     Returns:
         Dictionary containing map data or None if creation failed
     """
     
-    # Parse WKT polygon to get coordinates
-    coords = parse_wkt_polygon(aoi_wkt)
-    if not coords:
-        return None
-    
-    if map_type == "static" and MATPLOTLIB_AVAILABLE:
-        return create_static_map(coords, analysis_results)
-    elif map_type == "interactive" and FOLIUM_AVAILABLE:
-        return create_interactive_map(coords, analysis_results)
-    else:
-        return create_simple_geojson_map(coords, analysis_results)
+    try:
+        # Parse WKT polygon to get coordinates
+        coords = parse_wkt_polygon(aoi_wkt)
+        if not coords:
+            return {
+                "type": f"{map_type}_map",
+                "success": False,
+                "error": "Could not parse WKT polygon"
+            }
+        
+        if map_type == "static" and MATPLOTLIB_AVAILABLE:
+            return create_static_map(coords, analysis_results)
+        elif map_type == "interactive" and FOLIUM_AVAILABLE:
+            return create_interactive_map(coords, analysis_results)
+        else:
+            # Always fall back to GeoJSON which doesn't require external libraries
+            return create_simple_geojson_map(coords, analysis_results)
+            
+    except Exception as e:
+        return {
+            "type": f"{map_type}_map",
+            "success": False,
+            "error": f"Map creation failed: {str(e)}"
+        }
 
 def parse_wkt_polygon(wkt: str) -> Optional[list]:
     """Parse WKT polygon string to extract coordinates."""
