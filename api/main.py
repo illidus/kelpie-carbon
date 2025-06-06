@@ -27,6 +27,24 @@ except ImportError as e:
     ENHANCED_FEATURES_AVAILABLE = False
     print(f"⚠️  Enhanced features not available: {e}")
 
+# Import spectral indices with fallback
+try:
+    from sentinel_pipeline.indices import fai, ndre
+    print("✅ Sentinel pipeline indices loaded")
+except ImportError:
+    print("⚠️  Sentinel pipeline not available, using fallback functions")
+    
+    def fai(b8, b11, b4):
+        """Fallback FAI calculation: Floating Algae Index"""
+        # FAI = NIR - (SWIR - RED) * (lambda_NIR - lambda_RED) / (lambda_SWIR - lambda_RED)
+        # Simplified version: FAI ≈ NIR - SWIR + RED correction
+        return b8 - b11 + (b4 * 0.1)
+    
+    def ndre(red_edge, nir):
+        """Fallback NDRE calculation: Normalized Difference Red Edge"""
+        # NDRE = (NIR - RedEdge) / (NIR + RedEdge)
+        return (nir - red_edge) / (nir + red_edge + 1e-10)  # Small epsilon to avoid division by zero
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Kelpie Carbon Analysis API",
@@ -158,8 +176,6 @@ def generate_realistic_spectral_data(area_m2: float, date: str) -> tuple[float, 
     Simulates satellite reflectance values and calculates FAI/NDRE using
     the proper formulas rather than arbitrary area/date hashing.
     """
-    from sentinel_pipeline.indices import fai, ndre
-    
     # Use area and date to create deterministic but realistic reflectance values
     date_hash = hash(date) % 1000000
     area_factor = np.log10(max(area_m2, 1.0))

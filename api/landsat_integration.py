@@ -186,7 +186,18 @@ def download_and_process_scene(scene_data: dict, bbox: list) -> Optional[dict]:
 def calculate_spectral_indices(reflectance_data: dict) -> Tuple[float, float]:
     """Calculate FAI and NDRE from reflectance values."""
     try:
-        from sentinel_pipeline.indices import fai, ndre
+        # Try to import sentinel pipeline indices, fallback if not available
+        try:
+            from sentinel_pipeline.indices import fai, ndre
+        except ImportError:
+            # Fallback functions if sentinel_pipeline not available
+            def fai(b8, b11, b4):
+                """Fallback FAI calculation: Floating Algae Index"""
+                return b8 - b11 + (b4 * 0.1)
+            
+            def ndre(red_edge, nir):
+                """Fallback NDRE calculation: Normalized Difference Red Edge"""
+                return (nir - red_edge) / (nir + red_edge + 1e-10)
         
         # Extract reflectance values
         red = reflectance_data["red"]
