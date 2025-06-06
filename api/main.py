@@ -26,6 +26,67 @@ try:
 except ImportError as e:
     ENHANCED_FEATURES_AVAILABLE = False
     print(f"⚠️  Enhanced features not available: {e}")
+    
+    # Embed basic mapping functionality directly to bypass import issues
+    def create_result_map(aoi_wkt: str, analysis_results: dict, map_type: str = "geojson") -> dict:
+        """Embedded basic mapping functionality"""
+        try:
+            import re
+            import json
+            
+            # Parse WKT polygon
+            coords_match = re.search(r'POLYGON\s*\(\s*\((.*?)\)\s*\)', aoi_wkt)
+            if not coords_match:
+                return {"type": f"{map_type}_map", "success": False, "error": "Could not parse WKT polygon"}
+            
+            coords_str = coords_match.group(1)
+            coordinates = []
+            
+            for pair in coords_str.split(','):
+                lon, lat = map(float, pair.strip().split())
+                coordinates.append([lon, lat])
+            
+            # Close the polygon if not already closed
+            if coordinates[0] != coordinates[-1]:
+                coordinates.append(coordinates[0])
+            
+            # Create simple GeoJSON map (always works, no external dependencies)
+            geojson = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": "Kelp Analysis Area",
+                            "area_hectares": analysis_results.get("area_m2", 0) / 10000,
+                            "biomass_tonnes": analysis_results.get("biomass_t", 0),
+                            "co2_tonnes": analysis_results.get("co2e_t", 0),
+                            "date": analysis_results.get("date", "unknown"),
+                            "mean_fai": analysis_results.get("mean_fai", 0),
+                            "mean_ndre": analysis_results.get("mean_ndre", 0)
+                        }
+                    }
+                ]
+            }
+            
+            # Calculate bounds
+            lons = [c[0] for c in coordinates]
+            lats = [c[1] for c in coordinates]
+            
+            return {
+                "type": "geojson_map",
+                "geojson": geojson,
+                "center": [np.mean(lats), np.mean(lons)],
+                "bounds": [[min(lats), min(lons)], [max(lats), max(lons)]],
+                "success": True
+            }
+            
+        except Exception as e:
+            return {"type": f"{map_type}_map", "success": False, "error": f"Embedded mapping failed: {str(e)}"}
 
 # Import spectral indices with fallback
 try:
@@ -366,18 +427,16 @@ async def carbon_analysis(
     result_map = None
     if include_map:
         try:
-            if ENHANCED_FEATURES_AVAILABLE:
-                analysis_results = {
-                    "date": date,
-                    "area_m2": area_m2,
-                    "biomass_t": biomass_tonnes,
-                    "co2e_t": co2e_tonnes,
-                    "mean_fai": mean_fai,
-                    "mean_ndre": mean_ndre
-                }
-                result_map = create_result_map(aoi, analysis_results, map_type)
-            else:
-                result_map = {"error": "Mapping features not available"}
+            analysis_results = {
+                "date": date,
+                "area_m2": area_m2,
+                "biomass_t": biomass_tonnes,
+                "co2e_t": co2e_tonnes,
+                "mean_fai": mean_fai,
+                "mean_ndre": mean_ndre
+            }
+            # Always try to create a map - either enhanced or embedded fallback
+            result_map = create_result_map(aoi, analysis_results, map_type)
         except Exception as e:
             result_map = {"error": f"Map creation failed: {str(e)}"}
     
